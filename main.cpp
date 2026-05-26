@@ -15,40 +15,104 @@ using namespace std;
 
 // --- CONTROLADOR DE FLUJO DE FACTURACIÓN ---
 void menu_ventas() {
-    Venta v; Cliente c; Producto p; vector<Carrito> mi_carrito;
-    string nit_buscado; int id_emp, id_prod, cant, no_fact; char serie, agregar_mas; float precio_p;
+    Venta v; Cliente c; Producto p; Empleado emp; vector<Carrito> mi_carrito;
+    string nit_buscado; int id_emp, id_prod, cant, no_fact; char serie, agregar_mas;
 
     system("cls");
     cout << "===== MODULO DE FACTURACION (PUNTO DE VENTA) =====" << endl;
-    cout << "Ingrese NIT del Cliente: "; cin >> nit_buscado;
 
+    // REQUERIMIENTO 2: Visualizar información del cliente
+    cout << "Ingrese NIT del Cliente: "; cin >> nit_buscado;
     if (!c.buscarNit(nit_buscado)) {
         cout << "\n[Aviso] El cliente no existe. Registrelo en la gestion de clientes." << endl;
         system("pause"); return;
     }
+    cout << ">> Cliente: " << c.getNombres() << " " << c.getApellidos() << " | ID: " << c.getId() << "\n" << endl;
 
+    // REQUERIMIENTO 1: Visualizar nombre del cajero/empleado
     cout << "ID del Empleado (Cajero): "; cin >> id_emp;
-    cout << "Serie de Factura: "; cin >> serie;
-    cout << "No. Factura: "; cin >> no_fact;
+    if (!emp.buscarPorId(id_emp)) {
+        cout << "\nxx Error: El ID de empleado no existe. xx" << endl;
+        system("pause"); return;
+    }
+    cout << ">> Cajero Activo: " << emp.getNombres() << " " << emp.getApellidos() << "\n" << endl;
+
+    // REQUERIMIENTO 3: Serie y número de factura automáticos
+    cout << "Serie de Factura a emitir (Ej: A, B, C): "; cin >> serie;
+    no_fact = v.obtenerSiguienteNumeroFactura(serie);
+    cout << ">> Generando de forma automatica -> Factura No: " << no_fact << " (Serie " << serie << ")\n" << endl;
+    system("pause");
 
     do {
-        p.leer();
-        cout << "\nID del Producto: "; cin >> id_prod;
-        cout << "Cantidad: "; cin >> cant;
+        system("cls");
+        cout << "--- AGREGANDO PRODUCTOS AL CARRITO ---" << endl;
+        p.leer(); // Muestra el inventario disponible
 
-        if (p.verificarExistencia(id_prod, cant)) {
-            cout << "Precio Venta Q: "; cin >> precio_p;
-            mi_carrito.push_back({ id_prod, cant, precio_p });
-            cout << ">> Agregado al carrito." << endl;
+        cout << "\nID del Producto: "; cin >> id_prod;
+
+        // REQUERIMIENTO 4: Mostrar nombre y precio automáticamente al ingresar ID
+        if (p.buscarPorId(id_prod)) {
+            cout << ">> Producto Seleccionado: " << p.getProducto() << endl;
+            cout << ">> Precio Unitario:       Q" << p.getPrecioVenta() << endl;
+            cout << ">> Stock Disponible:      " << p.getExistencia() << " unidades." << endl;
+
+            cout << "\nCantidad a comprar: "; cin >> cant;
+
+            if (cant <= p.getExistencia()) {
+                // REQUERIMIENTO 5: Multiplicar precio * cantidad y generar total del producto
+                double subtotal_producto = p.getPrecioVenta() * cant;
+                cout << ">> TOTAL DE ESTE PRODUCTO: Q" << subtotal_producto << endl;
+
+                // Guardamos en el vector incluyendo el nombre del producto
+                mi_carrito.push_back({ id_prod, p.getProducto(), cant, p.getPrecioVenta() });
+                cout << "\n[OK] Agregado exitosamente al carrito." << endl;
+            }
+            else {
+                cout << "\nxx Error: Inventario insuficiente. El stock es de: " << p.getExistencia() << " xx" << endl;
+            }
         }
         else {
-            cout << "xx Error: Inventario insuficiente. xx" << endl;
+            cout << "\nxx Error: El ID de producto ingresado no existe. xx" << endl;
         }
-        cout << "¿Desea agregar otro? (s/n): "; cin >> agregar_mas;
+
+        cout << "\n¿Desea agregar otro producto? (s/n): "; cin >> agregar_mas;
     } while (agregar_mas == 's' || agregar_mas == 'S');
 
+    // GENERACIÓN E IMPRESIÓN DE LA FACTURA FINAL EN PANTALLA Y EN BASE DE DATOS
     if (!mi_carrito.empty()) {
+        system("cls");
+        cout << "==========================================================" << endl;
+        cout << "                   S U P E R M E R C A D O                 " << endl;
+        cout << "==========================================================" << endl;
+        cout << "Factura Serie: " << serie << "   No. Factura: " << no_fact << endl;
+        cout << "Cliente:       " << c.getNombres() << " " << c.getApellidos() << " | NIT: " << nit_buscado << endl;
+        cout << "Cajero ID:     " << id_emp << " - " << emp.getNombres() << endl;
+        cout << "----------------------------------------------------------" << endl;
+        cout << "Cant. | Descripcion                 | P. Unit | Subtotal  " << endl;
+        cout << "----------------------------------------------------------" << endl;
+
+        double total_general = 0.0;
+        for (auto const& item : mi_carrito) {
+            double sub = item.cantidad * item.precio_unitario;
+            total_general += sub;
+
+            // Ajustamos espacios para simular una impresión estética de ticket
+            string desc = item.nombre_producto;
+            if (desc.length() > 25) desc = desc.substr(0, 22) + "...";
+            else desc.append(25 - desc.length(), ' ');
+
+            cout << item.cantidad << "      " << desc << "   Q" << item.precio_unitario << "    Q" << sub << endl;
+        }
+
+        cout << "----------------------------------------------------------" << endl;
+        cout << "                                    TOTAL FINAL: Q" << total_general << endl;
+        cout << "==========================================================\n" << endl;
+
+        cout << "Procesando transaccion en Base de Datos..." << endl;
         v.ejecutarVenta(c.getId(), id_emp, serie, no_fact, mi_carrito);
+    }
+    else {
+        cout << "\n[Aviso] Venta cancelada. El carrito de compras esta vacio." << endl;
     }
     system("pause");
 }

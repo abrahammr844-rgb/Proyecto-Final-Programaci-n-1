@@ -55,7 +55,47 @@ public:
     std::string getFechaIngreso() const { return fecha_ingreso; }
 
 
-    // ==== METODO DE AUTENTICACION CON DIAGNOSTICO ====
+
+    bool buscarPorId(int id) {
+        ConexionBD cn; cn.abrir_conexion();
+        MYSQL* conn = cn.getConector();
+        bool existe = false;
+
+        if (conn) {
+            std::string query = "SELECT id_empleado, nombres, apellidos FROM empleados WHERE id_empleado = ?";
+            MYSQL_STMT* stmt = mysql_stmt_init(conn);
+
+            if (stmt && mysql_stmt_prepare(stmt, query.c_str(), query.length()) == 0) {
+                MYSQL_BIND bind_in[1]; std::memset(bind_in, 0, sizeof(bind_in));
+                bind_in[0].buffer_type = MYSQL_TYPE_LONG;
+                bind_in[0].buffer = &id;
+                mysql_stmt_bind_param(stmt, bind_in);
+
+                if (mysql_stmt_execute(stmt) == 0) {
+                    mysql_stmt_store_result(stmt);
+                    if (mysql_stmt_num_rows(stmt) > 0) {
+                        int res_id; char res_nom[61]; char res_ape[61]; unsigned long l_n, l_a;
+                        MYSQL_BIND bind_out[3]; std::memset(bind_out, 0, sizeof(bind_out));
+
+                        bind_out[0].buffer_type = MYSQL_TYPE_LONG;   bind_out[0].buffer = &res_id;
+                        bind_out[1].buffer_type = MYSQL_TYPE_STRING; bind_out[1].buffer = res_nom; bind_out[1].buffer_length = 60; bind_out[1].length = &l_n;
+                        bind_out[2].buffer_type = MYSQL_TYPE_STRING; bind_out[2].buffer = res_ape; bind_out[2].buffer_length = 60; bind_out[2].length = &l_a;
+
+                        mysql_stmt_bind_result(stmt, bind_out);
+                        if (mysql_stmt_fetch(stmt) == 0) {
+                            id_empleado = res_id; res_nom[l_n] = '\0'; res_ape[l_a] = '\0';
+                            nombres = std::string(res_nom);
+                            apellidos = std::string(res_ape);
+                            existe = true;
+                        }
+                    }
+                }
+            }
+            if (stmt) mysql_stmt_close(stmt);
+        }
+        cn.cerrar_conexion();
+        return existe;
+    }
 
     bool autenticar(int id, const std::string& token_cui) {
         ConexionBD cn;
